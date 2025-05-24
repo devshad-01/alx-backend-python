@@ -6,12 +6,12 @@ from seed import connect_to_prodev
 from mysql.connector import Error
 
 
-def stream_users_in_batches(batch_size):
+def streamusersinbatches(batchsize):
     """
     Generator function that streams users from the database in batches
     
     Args:
-        batch_size (int): Number of rows to fetch in each batch
+        batchsize (int): Number of rows to fetch in each batch
         
     Yields:
         list: A batch of user dictionaries
