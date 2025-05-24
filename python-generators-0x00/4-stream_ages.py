@@ -6,7 +6,7 @@ from seed import connect_to_prodev
 from mysql.connector import Error
 
 
-def streamuserages():
+def stream_user_ages():
     """
     Generator function that yields user ages one by one
     
@@ -26,9 +26,19 @@ def streamuserages():
             cursor.close()
             connection.close()
     except Error as e:
-        print(f"Error in streamuserages: {e}")
+        print(f"Error in stream_user_ages: {e}")
         if connection:
             connection.close()
+
+
+def streamuserages():
+    """
+    Generator function that yields user ages one by one (alias for stream_user_ages)
+    
+    Yields:
+        int: Age of a user
+    """
+    yield from stream_user_ages()
 
 
 def calculate_average_age():
@@ -41,7 +51,7 @@ def calculate_average_age():
     total_age = 0
     count = 0
     
-    for age in streamuserages():
+    for age in stream_user_ages():
         total_age += age
         count += 1
     

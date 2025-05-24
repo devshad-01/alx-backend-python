@@ -11,7 +11,7 @@ stream_ages = __import__('4-stream_ages')
 def main():
     try:
         print("First 10 ages from the generator:")
-        for age in islice(stream_ages.streamuserages(), 10):
+        for age in islice(stream_ages.stream_user_ages(), 10):
             print(f"User age: {age}")
             
         print("\nCalculating average age...")
