@@ -25,7 +25,7 @@ def streamusersinbatches(batchsize):
             
             while True:
                 # Fetch a batch of users
-                cursor.execute(f"SELECT * FROM user_data LIMIT {batch_size} OFFSET {offset}")
+                cursor.execute(f"SELECT * FROM user_data LIMIT {batchsize} OFFSET {offset}")
                 batch = cursor.fetchall()
                 
                 # If no more rows, exit the loop
@@ -33,24 +33,24 @@ def streamusersinbatches(batchsize):
                     break
                     
                 yield batch
-                offset += batch_size
+                offset += batchsize
                 
             cursor.close()
             connection.close()
     except Error as e:
-        print(f"Error in stream_users_in_batches: {e}")
+        print(f"Error in streamusersinbatches: {e}")
         if connection:
             connection.close()
 
 
-def batch_processing(batch_size):
+def batch_processing(batchsize=50):
     """
     Process batches of user data and filter users over age 25
     
     Args:
-        batch_size (int): Number of rows to process in each batch
+        batchsize (int): Number of rows to process in each batch
     """
-    for batch in stream_users_in_batches(batch_size):
+    for batch in streamusersinbatches(batchsize):
         for user in batch:
             # Filter users over age 25
             if user['age'] > 25:
