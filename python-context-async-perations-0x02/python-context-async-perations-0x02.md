@@ -13,17 +13,20 @@ Modern Python applications often need to manage resources efficiently and handle
 ## Files and Implementations
 
 ### 1. `0-databaseconnection.py`
+
 **Custom Class-based Context Manager for Database Connection**
 
 This file implements a context manager `DatabaseConnection` that automatically handles opening and closing MySQL database connections.
 
 Key features:
+
 - Implements `__enter__` and `__exit__` methods for use with the `with` statement
 - Handles connection creation and cleanup
 - Provides proper error handling and resource management
 - Returns a cursor for executing queries
 
 Usage example:
+
 ```python
 with DatabaseConnection() as cursor:
     cursor.execute("SELECT * FROM users")
@@ -32,11 +35,13 @@ with DatabaseConnection() as cursor:
 ```
 
 ### 2. `1-execute.py`
+
 **Reusable Query Context Manager**
 
 This file implements a context manager `ExecuteQuery` that executes parameterized SQL queries and manages the connection lifecycle.
 
 Key features:
+
 - Takes a query string and parameters as input
 - Executes the query during context entry
 - Manages both connection and query execution
@@ -44,6 +49,7 @@ Key features:
 - Ensures proper cleanup of database resources
 
 Usage example:
+
 ```python
 query = "SELECT * FROM users WHERE age > ?"
 params = (25,)
@@ -54,11 +60,13 @@ with ExecuteQuery(query, params) as query_result:
 ```
 
 ### 3. `3-concurrent.py`
+
 **Concurrent Asynchronous Database Queries**
 
 This file demonstrates how to execute multiple database queries concurrently using `asyncio.gather()` and `aiosqlite`.
 
 Key features:
+
 - Uses `aiosqlite` for asynchronous SQLite operations
 - Implements two async query functions:
   - `async_fetch_users()`: Fetches all users
@@ -67,6 +75,7 @@ Key features:
 - Provides performance comparison between concurrent and sequential execution
 
 Usage example:
+
 ```python
 # Run both queries concurrently
 all_users, older_users = asyncio.run(fetch_concurrently())
