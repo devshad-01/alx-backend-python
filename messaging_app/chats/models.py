@@ -71,6 +71,7 @@ class Message(models.Model):
         help_text="Conversation this message belongs to"
     )
     message_body = models.TextField(help_text="Message content")
+    sent_at = models.DateTimeField(auto_now_add=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
 
