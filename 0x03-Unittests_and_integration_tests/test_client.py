@@ -164,6 +164,37 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
         """
         cls.get_patcher.stop()
 
+    def test_public_repos(self):
+        """Test that public_repos returns expected repositories.
+
+        This integration test verifies that the public_repos method
+        returns the expected list of repository names from the fixtures.
+        """
+        # Create client instance
+        client = GithubOrgClient("google")
+
+        # Call public_repos method (no license filter)
+        result = client.public_repos()
+
+        # Test that the result matches the expected repos from fixtures
+        self.assertEqual(result, self.expected_repos)
+
+    def test_public_repos_with_license(self):
+        """Test that public_repos with license filter returns expected repos.
+
+        This integration test verifies that the public_repos method
+        correctly filters repositories by license and returns the
+        expected apache-2.0 licensed repositories from the fixtures.
+        """
+        # Create client instance
+        client = GithubOrgClient("google")
+
+        # Call public_repos method with apache-2.0 license filter
+        result = client.public_repos(license="apache-2.0")
+
+        # Test that the result matches the expected apache2_repos from fixtures
+        self.assertEqual(result, self.apache2_repos)
+
 
 if __name__ == '__main__':
     unittest.main()
