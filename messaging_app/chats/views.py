@@ -34,7 +34,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 Q(last_name__icontains=search)
             )
         
-        return queryset.exclude(id=self.request.user.id)  # Exclude current user
+        return queryset.exclude(user_id=self.request.user.user_id)  # Exclude current user
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -83,7 +83,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(user_id=user_id)
             conversation.participants.add(user)
             return Response(
                 {'message': f'User {user.username} added to conversation'},
@@ -108,7 +108,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(user_id=user_id)
             conversation.participants.remove(user)
             return Response(
                 {'message': f'User {user.username} removed from conversation'},
@@ -154,7 +154,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(
-                    id=conversation_id,
+                    conversation_id=conversation_id,
                     participants=request.user
                 )
             except Conversation.DoesNotExist:
@@ -197,7 +197,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         
         try:
             conversation = Conversation.objects.get(
-                id=conversation_id,
+                conversation_id=conversation_id,
                 participants=request.user
             )
             
