@@ -9,9 +9,9 @@ class UserSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 
+        fields = ['user_id', 'username', 'email', 'first_name', 'last_name', 
                  'phone_number', 'is_online', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['user_id', 'created_at']
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -20,13 +20,13 @@ class MessageSerializer(serializers.ModelSerializer):
     Includes sender information and handles message creation.
     """
     sender = UserSerializer(read_only=True)
-    sender_id = serializers.IntegerField(write_only=True, required=False)
+    sender_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'sender_id', 'conversation', 'content', 
-                 'timestamp', 'is_read']
-        read_only_fields = ['id', 'timestamp']
+        fields = ['message_id', 'sender', 'sender_id', 'conversation', 'message_body', 
+                 'sent_at', 'timestamp', 'is_read']
+        read_only_fields = ['message_id', 'sent_at', 'timestamp']
 
     def create(self, validated_data):
         """
@@ -37,7 +37,7 @@ class MessageSerializer(serializers.ModelSerializer):
         if request and not validated_data.get('sender_id'):
             validated_data['sender'] = request.user
         elif validated_data.get('sender_id'):
-            validated_data['sender'] = User.objects.get(id=validated_data.pop('sender_id'))
+            validated_data['sender'] = User.objects.get(user_id=validated_data.pop('sender_id'))
         
         return super().create(validated_data)
 
@@ -49,7 +49,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     """
     participants = UserSerializer(many=True, read_only=True)
     participant_ids = serializers.ListField(
-        child=serializers.IntegerField(),
+        child=serializers.UUIDField(),
         write_only=True,
         required=False
     )
@@ -59,9 +59,9 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'participant_ids', 'messages', 
+        fields = ['conversation_id', 'participants', 'participant_ids', 'messages', 
                  'last_message', 'message_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['conversation_id', 'created_at', 'updated_at']
 
     def get_message_count(self, obj):
         """Return the total number of messages in this conversation"""
@@ -79,7 +79,7 @@ class ConversationSerializer(serializers.ModelSerializer):
         
         # Add participants
         if participant_ids:
-            participants = User.objects.filter(id__in=participant_ids)
+            participants = User.objects.filter(user_id__in=participant_ids)
             conversation.participants.set(participants)
         
         # Always include the request user as a participant
@@ -113,7 +113,7 @@ class ConversationListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Conversation
-        fields = ['id', 'participants', 'last_message', 'message_count', 
+        fields = ['conversation_id', 'participants', 'last_message', 'message_count', 
                  'created_at', 'updated_at']
 
     def get_message_count(self, obj):
