@@ -28,13 +28,17 @@ At the end of this project, you should be able to explain to anyone, without the
 ## Files
 
 ### `utils.py`
+
 Contains utility functions for the GitHub organization client:
+
 - `access_nested_map`: Access nested map with key path
 - `get_json`: Get JSON from remote URL
 - `memoize`: Decorator to memoize a method
 
 ### `test_utils.py`
+
 Contains unit tests for the utility functions:
+
 - `TestAccessNestedMap`: Test cases for the `access_nested_map` function
 
 ## Usage
