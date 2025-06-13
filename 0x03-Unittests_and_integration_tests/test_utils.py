@@ -28,6 +28,26 @@ class TestAccessNestedMap(unittest.TestCase):
         # Verify function returns the correct value for the given inputs
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
+    @parameterized.expand([
+        # Test cases in format: (nested_map, path, expected_key_error)
+        ({}, ("a",), "a"),  # Empty dict, trying to access key "a"
+        ({"a": 1}, ("a", "b"), "b"),  # Nested access where "b" doesn't exist
+    ])
+    def test_access_nested_map_exception(self, nested_map, path, expected_key):
+        """Test that access_nested_map raises KeyError for invalid paths.
+        
+        Args:
+            nested_map (dict): The dictionary to extract values from
+            path (tuple): Sequence of keys to access nested values
+            expected_key: The key that should be in the KeyError message
+        """
+        # Use assertRaises context manager to check KeyError is raised
+        with self.assertRaises(KeyError) as context:
+            access_nested_map(nested_map, path)
+        
+        # Verify the exception message contains the expected key
+        self.assertEqual(str(context.exception), f"'{expected_key}'")
+
 class TestGetJson(unittest.TestCase):
 
 
