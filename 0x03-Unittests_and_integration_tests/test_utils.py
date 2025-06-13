@@ -7,6 +7,7 @@ from unittest.mock import patch  # Import patch for mocking
 from parameterized import parameterized  # Import parameterized testing library
 from utils import access_nested_map  # Import the function being tested
 from utils import get_json  # Import another function to be tested
+from utils import memoize  # Import the memoize decorator to be tested
 
 
 class TestAccessNestedMap(unittest.TestCase):
@@ -76,6 +77,36 @@ class TestGetJson(unittest.TestCase):
             
             # Verify the function returns the expected payload
             self.assertEqual(result, test_payload)
+
+class TestMemoize(unittest.TestCase):
+    """Test class for memoize decorator functionality."""
+    
+    def test_memoize(self):
+        """Test that memoize decorator caches method results correctly."""
+        
+        class TestClass:
+            def a_method(self):
+                return 42
+
+            @memoize
+            def a_property(self):
+                return self.a_method()
+        
+        # Create an instance of TestClass
+        test_obj = TestClass()
+        
+        # Mock the a_method to track its calls
+        with patch.object(test_obj, 'a_method', return_value=42) as mock_method:
+            # Call a_property twice
+            result1 = test_obj.a_property
+            result2 = test_obj.a_property
             
+            # Verify both calls return the correct result
+            self.assertEqual(result1, 42)
+            self.assertEqual(result2, 42)
+            
+            # Verify a_method was called only once due to memoization
+            mock_method.assert_called_once()
+
 if __name__ == '__main__':
     unittest.main()  # Run all tests when this file is executed directly
