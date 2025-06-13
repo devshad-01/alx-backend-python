@@ -4,8 +4,9 @@ This module tests the functionality of the client.py file.
 """
 import unittest
 from unittest.mock import patch, PropertyMock
-from parameterized import parameterized
+from parameterized import parameterized, parameterized_class
 from client import GithubOrgClient
+from fixtures import TEST_PAYLOAD
 
 
 class TestGithubOrgClient(unittest.TestCase):
@@ -119,6 +120,49 @@ class TestGithubOrgClient(unittest.TestCase):
 
         # Test that the result matches expected value
         self.assertEqual(result, expected)
+
+
+@parameterized_class(
+    ("org_payload", "repos_payload", "expected_repos", "apache2_repos"),
+    TEST_PAYLOAD
+)
+class TestIntegrationGithubOrgClient(unittest.TestCase):
+    """Integration test class for GithubOrgClient."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up class fixtures before running tests.
+
+        This method mocks requests.get to return example payloads
+        found in the fixtures, avoiding external HTTP requests.
+        """
+        # Define the side effect function for requests.get
+        def side_effect(url):
+            # Create a mock response object
+            mock_response = unittest.mock.Mock()
+
+            # Return org_payload for organization URL
+            if url == "https://api.github.com/orgs/google":
+                mock_response.json.return_value = cls.org_payload
+            # Return repos_payload for repos URL
+            elif url == cls.org_payload["repos_url"]:
+                mock_response.json.return_value = cls.repos_payload
+            else:
+                mock_response.json.return_value = {}
+
+            return mock_response
+
+        # Start the patcher for requests.get
+        cls.get_patcher = patch('requests.get', side_effect=side_effect)
+        cls.get_patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        """Tear down class fixtures after running tests.
+
+        This method stops the patcher to clean up mocked requests.
+        """
+        cls.get_patcher.stop()
 
 
 if __name__ == '__main__':
