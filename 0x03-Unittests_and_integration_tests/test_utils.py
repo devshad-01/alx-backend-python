@@ -10,12 +10,6 @@ from utils import get_json  # Import another function to be tested
 
 
 class TestAccessNestedMap(unittest.TestCase):
-    """Test cases for access_nested_map function.
-        
-
-    This class contains test methods to verify the correct behavior
-    of the access_nested_map function with different inputs.
-    """
 
     @parameterized.expand([
         # Test cases in format: (nested_map, path, expected_result)
@@ -35,11 +29,7 @@ class TestAccessNestedMap(unittest.TestCase):
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
 class TestGetJson(unittest.TestCase):
-    """Test cases for get_json function.
-    
-    This class contains test methods to verify the correct behavior
-    of the get_json function with mocked HTTP calls.
-    """
+
 
     @parameterized.expand([
         # Test cases in format: (test_url, test_payload)
