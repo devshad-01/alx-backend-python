@@ -70,8 +70,7 @@ class TestGetJson(unittest.TestCase):
             
             # Call the function being tested
             result = get_json(test_url)
-            print(mock_get)
-            print(test_payload)
+            
             # Verify the mock was called exactly once with the correct URL
             mock_get.assert_called_once_with(test_url)
             
