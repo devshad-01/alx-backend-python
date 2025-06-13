@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -8,7 +9,9 @@ class User(AbstractUser):
     Custom User model extending Django's AbstractUser.
     Can be extended with additional fields as needed.
     """
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)  # Explicitly define password field
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
@@ -25,6 +28,7 @@ class Conversation(models.Model):
     Model to represent a conversation between multiple users.
     Tracks which users are involved in a conversation.
     """
+    conversation_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     participants = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name='conversations',
@@ -53,6 +57,7 @@ class Message(models.Model):
     Model to represent individual messages within conversations.
     Contains sender, conversation, and message content.
     """
+    message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -65,7 +70,7 @@ class Message(models.Model):
         related_name='messages',
         help_text="Conversation this message belongs to"
     )
-    content = models.TextField(help_text="Message content")
+    message_body = models.TextField(help_text="Message content")
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
 
@@ -73,7 +78,7 @@ class Message(models.Model):
         ordering = ['-timestamp']
 
     def __str__(self):
-        return f"{self.sender.username}: {self.content[:50]}{'...' if len(self.content) > 50 else ''}"
+        return f"{self.sender.username}: {self.message_body[:50]}{'...' if len(self.message_body) > 50 else ''}"
 
     def save(self, *args, **kwargs):
         """Update conversation's updated_at when a new message is added"""
