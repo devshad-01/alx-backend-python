@@ -175,7 +175,7 @@ class OffensiveLanguageMiddleware:
         return response
 
 
-class RolePermissionMiddleware:
+class RolepermissionMiddleware:
     """
     Middleware to check user's role and allow access only to admin or moderator users
     for specific actions. Returns 403 Forbidden for unauthorized users.
