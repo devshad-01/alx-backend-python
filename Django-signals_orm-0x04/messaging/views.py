@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.db.models import Prefetch, Q
 from .models import Message, Notification, MessageHistory
 import json
 
@@ -16,18 +17,28 @@ def send_message(request):
     """
     try:
         data = json.loads(request.body)
-        sender_username = data.get('sender_username')
         receiver_username = data.get('receiver_username')
         content = data.get('content')
+        parent_id = data.get('parent_id')  # For threaded replies
         
-        if not all([sender_username, receiver_username, content]):
+        if not all([receiver_username, content]):
             return JsonResponse({
-                'error': 'sender_username, receiver_username, and content are required'
+                'error': 'receiver_username and content are required'
             }, status=400)
         
         try:
-            sender = User.objects.get(username=sender_username)
+            # Using request.user instead of getting from data
+            sender = request.user
             receiver = User.objects.get(username=receiver_username)
+            
+            # Handle parent message for threaded replies
+            parent_message = None
+            if parent_id:
+                try:
+                    parent_message = Message.objects.get(id=parent_id)
+                except Message.DoesNotExist:
+                    return JsonResponse({'error': 'Parent message not found'}, status=404)
+            
         except User.DoesNotExist as e:
             return JsonResponse({'error': f'User not found: {str(e)}'}, status=404)
         
@@ -35,14 +46,15 @@ def send_message(request):
         message = Message.objects.create(
             sender=sender,
             receiver=receiver,
-            content=content
+            content=content,
+            parent_message=parent_message
         )
         
-        # Check if notification was created
+        # Check if notification was created - using select_related for optimization
         notification = Notification.objects.filter(
             user=receiver,
             message=message
-        ).first()
+        ).select_related('message', 'user').first()
         
         return JsonResponse({
             'success': True,
@@ -51,7 +63,8 @@ def send_message(request):
                 'sender': sender.username,
                 'receiver': receiver.username,
                 'content': message.content,
-                'timestamp': message.timestamp.isoformat()
+                'timestamp': message.timestamp.isoformat(),
+                'parent_id': parent_message.id if parent_message else None
             },
             'notification_created': notification is not None,
             'notification': {
@@ -73,7 +86,11 @@ def list_notifications(request, username):
     """
     try:
         user = User.objects.get(username=username)
-        notifications = Notification.objects.filter(user=user).order_by('-created_at')
+        
+        # Using select_related to optimize database queries
+        notifications = Notification.objects.filter(user=user)\
+            .select_related('message', 'message__sender', 'user')\
+            .order_by('-created_at')
         
         notifications_data = []
         for notification in notifications:
@@ -110,20 +127,21 @@ def edit_message(request, message_id):
     try:
         data = json.loads(request.body)
         new_content = data.get('content')
-        editor_username = data.get('editor_username')
         
-        if not all([new_content, editor_username]):
+        if not new_content:
             return JsonResponse({
-                'error': 'content and editor_username are required'
+                'error': 'content is required'
             }, status=400)
         
         try:
-            message = Message.objects.get(id=message_id)
-            editor = User.objects.get(username=editor_username)
+            # Using select_related for optimization
+            message = Message.objects.select_related('sender', 'receiver').get(id=message_id)
+            
+            # Using request.user instead of getting from data
+            editor = request.user
+            
         except Message.DoesNotExist:
             return JsonResponse({'error': 'Message not found'}, status=404)
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'Editor user not found'}, status=404)
         
         # Check if editor is the sender (basic permission check)
         if message.sender != editor:
@@ -139,7 +157,7 @@ def edit_message(request, message_id):
         message.save()
         
         # Get the history record that was just created
-        history = MessageHistory.objects.filter(message=message).first()
+        history = MessageHistory.objects.filter(message=message).select_related('message', 'edited_by').first()
         
         return JsonResponse({
             'success': True,
@@ -162,8 +180,12 @@ def message_history(request, message_id):
     API endpoint to view the edit history of a message.
     """
     try:
-        message = Message.objects.get(id=message_id)
-        history_records = MessageHistory.objects.filter(message=message)
+        # Using select_related for optimization
+        message = Message.objects.select_related('sender', 'receiver').get(id=message_id)
+        
+        # Using select_related to optimize database queries
+        history_records = MessageHistory.objects.filter(message=message)\
+            .select_related('message', 'edited_by')
         
         history_data = []
         for record in history_records:
@@ -195,7 +217,10 @@ def user_message_edits(request, username):
     """
     try:
         user = User.objects.get(username=username)
-        edits = MessageHistory.objects.filter(edited_by=user)
+        
+        # Using select_related to optimize database queries
+        edits = MessageHistory.objects.filter(edited_by=user)\
+            .select_related('message', 'message__receiver', 'edited_by')
         
         edits_data = []
         for edit in edits:
@@ -304,6 +329,118 @@ def get_user_data_summary(request, username):
                 'total_items': sent_messages + received_messages + notifications + message_edits
             },
             'warning': 'All this data will be permanently deleted if you delete your account'
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def get_threaded_message(request, message_id):
+    """
+    API endpoint to get a message with all of its replies in a threaded format.
+    Uses recursive querying to fetch the entire tree of replies.
+    """
+    try:
+        # Get the root message with all necessary relations for optimization
+        root_message = Message.objects.filter(id=message_id)\
+            .select_related('sender', 'receiver')\
+            .first()
+        
+        if not root_message:
+            return JsonResponse({'error': 'Message not found'}, status=404)
+            
+        # Get the message thread recursively
+        message_thread = get_message_with_replies(root_message)
+        
+        return JsonResponse({
+            'message_thread': message_thread
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def get_message_with_replies(message):
+    """
+    Helper function to recursively fetch all replies to a message.
+    Used by get_threaded_message to build a threaded conversation view.
+    """
+    # Optimize query using select_related to reduce db hits
+    replies = Message.objects.filter(parent_message=message)\
+        .select_related('sender', 'receiver')\
+        .prefetch_related(
+            Prefetch('notification_set', queryset=Notification.objects.select_related('user'))
+        )
+        
+    message_data = {
+        'id': message.id,
+        'sender': message.sender.username,
+        'receiver': message.receiver.username,
+        'content': message.content,
+        'timestamp': message.timestamp.isoformat(),
+        'edited': message.edited,
+        'replies': []
+    }
+    
+    # Recursively get replies to each reply
+    for reply in replies:
+        reply_data = get_message_with_replies(reply)
+        message_data['replies'].append(reply_data)
+        
+    return message_data
+
+
+@require_http_methods(["GET"])
+def list_messages(request, username=None):
+    """
+    API endpoint to list messages for a user, with optimized querying.
+    """
+    try:
+        query_params = {}
+        
+        if username:
+            # Get all messages sent or received by this user
+            user = User.objects.get(username=username)
+            query = Q(sender=user) | Q(receiver=user)
+        else:
+            # Only get messages related to the requesting user if no username provided
+            user = request.user
+            query = Q(sender=user) | Q(receiver=user)
+        
+        # Using both select_related and prefetch_related for optimization
+        messages = Message.objects.filter(query, parent_message=None)\
+            .select_related('sender', 'receiver')\
+            .prefetch_related(
+                # Prefetch direct replies with their related fields
+                Prefetch('replies', 
+                         queryset=Message.objects.select_related('sender', 'receiver')),
+                # Prefetch notifications related to messages
+                Prefetch('notification_set', 
+                         queryset=Notification.objects.select_related('user'))
+            ).order_by('-timestamp')
+        
+        messages_data = []
+        for message in messages:
+            # Get reply counts
+            reply_count = message.replies.count()
+            
+            messages_data.append({
+                'id': message.id,
+                'sender': message.sender.username,
+                'receiver': message.receiver.username,
+                'content': message.content,
+                'timestamp': message.timestamp.isoformat(),
+                'edited': message.edited,
+                'reply_count': reply_count,
+                'has_replies': reply_count > 0
+            })
+        
+        return JsonResponse({
+            'user': username or request.user.username,
+            'messages_count': len(messages_data),
+            'messages': messages_data
         })
         
     except User.DoesNotExist:
