@@ -173,3 +173,74 @@ class OffensiveLanguageMiddleware:
         # Process the request normally
         response = self.get_response(request)
         return response
+
+
+class RolePermissionMiddleware:
+    """
+    Middleware to check user's role and allow access only to admin or moderator users
+    for specific actions. Returns 403 Forbidden for unauthorized users.
+    """
+    
+    def __init__(self, get_response):
+        """
+        Initialize the middleware with the get_response callable.
+        This is called once when the Django app starts.
+        """
+        self.get_response = get_response
+        
+        # Define protected paths that require admin/moderator access
+        self.protected_paths = [
+            '/admin/',
+            '/api/admin/',
+            '/api/moderate/',
+            '/api/users/ban/',
+            '/api/users/delete/',
+            '/api/conversations/delete/',
+            '/api/messages/delete/',
+        ]
+        
+        # Define allowed roles
+        self.allowed_roles = ['admin', 'moderator']
+    
+    def is_protected_path(self, path):
+        """
+        Check if the requested path requires admin/moderator permissions.
+        """
+        return any(protected in path for protected in self.protected_paths)
+    
+    def has_required_role(self, user):
+        """
+        Check if the user has admin or moderator role.
+        """
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Check if user has a role attribute
+        if hasattr(user, 'role'):
+            return user.role in self.allowed_roles
+        
+        # Fallback: check if user is superuser (admin)
+        if hasattr(user, 'is_superuser'):
+            return user.is_superuser
+        
+        return False
+    
+    def __call__(self, request):
+        """
+        Process the request and check if user has required role permissions.
+        This is called for each request.
+        """
+        # Check if the requested path requires special permissions
+        if self.is_protected_path(request.path):
+            # Get user from request
+            user = getattr(request, 'user', None)
+            
+            # Check if user has required role
+            if not self.has_required_role(user):
+                return HttpResponseForbidden(
+                    "Access denied. Admin or moderator role required for this action."
+                )
+        
+        # If path is not protected or user has required role, proceed with the request
+        response = self.get_response(request)
+        return response
