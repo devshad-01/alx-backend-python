@@ -44,7 +44,7 @@ def send_message(request):
         
         # Create the message - this will trigger the signal
         message = Message.objects.create(
-            sender=sender,
+            sender=request.user,
             receiver=receiver,
             content=content,
             parent_message=parent_message
