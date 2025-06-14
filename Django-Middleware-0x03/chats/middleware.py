@@ -1,8 +1,10 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from django.conf import settings
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
+from collections import defaultdict
+from django.utils import timezone
 
 
 class RequestLoggingMiddleware:
@@ -84,5 +86,90 @@ class RestrictAccessByTimeMiddleware:
             )
         
         # If within allowed hours, proceed with the request
+        response = self.get_response(request)
+        return response
+
+
+class OffensiveLanguageMiddleware:
+    """
+    Middleware to limit the number of chat messages a user can send within a certain time window,
+    based on their IP address. Implements rate limiting of 5 messages per minute.
+    """
+    
+    def __init__(self, get_response):
+        """
+        Initialize the middleware with the get_response callable.
+        This is called once when the Django app starts.
+        """
+        self.get_response = get_response
+        
+        # Dictionary to store message counts per IP address
+        # Structure: {ip_address: [(timestamp1, count1), (timestamp2, count2), ...]}
+        self.ip_message_tracker = defaultdict(list)
+        
+        # Rate limiting configuration
+        self.max_messages = 5  # Maximum messages allowed
+        self.time_window = 60  # Time window in seconds (1 minute)
+    
+    def get_client_ip(self, request):
+        """
+        Get the client's IP address from the request.
+        """
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def clean_old_entries(self, ip_address):
+        """
+        Remove entries older than the time window for a given IP address.
+        """
+        current_time = timezone.now()
+        cutoff_time = current_time - timedelta(seconds=self.time_window)
+        
+        # Filter out entries older than the time window
+        self.ip_message_tracker[ip_address] = [
+            entry for entry in self.ip_message_tracker[ip_address]
+            if entry[0] > cutoff_time
+        ]
+    
+    def count_recent_messages(self, ip_address):
+        """
+        Count the number of messages sent by an IP address within the time window.
+        """
+        self.clean_old_entries(ip_address)
+        return len(self.ip_message_tracker[ip_address])
+    
+    def __call__(self, request):
+        """
+        Process the request and check if it should be rate limited.
+        This is called for each request.
+        """
+        # Only check POST requests (which are typically used for sending messages)
+        if request.method == 'POST':
+            # Get client IP address
+            client_ip = self.get_client_ip(request)
+            
+            # Check if this is a message-related endpoint
+            # You can customize this condition based on your URL patterns
+            if '/messages/' in request.path or '/chats/' in request.path:
+                # Count recent messages from this IP
+                recent_message_count = self.count_recent_messages(client_ip)
+                
+                # Check if the limit has been exceeded
+                if recent_message_count >= self.max_messages:
+                    return JsonResponse({
+                        'error': 'Rate limit exceeded',
+                        'message': f'You can only send {self.max_messages} messages per minute. Please wait before sending another message.',
+                        'retry_after': self.time_window
+                    }, status=429)  # 429 Too Many Requests
+                
+                # If within limit, record this message attempt
+                current_time = timezone.now()
+                self.ip_message_tracker[client_ip].append((current_time, 1))
+        
+        # Process the request normally
         response = self.get_response(request)
         return response
