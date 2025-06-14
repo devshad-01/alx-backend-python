@@ -17,17 +17,19 @@ class RequestLoggingMiddleware:
         self.get_response = get_response
         
         # Set up logging configuration
-        log_file_path = os.path.join(settings.BASE_DIR, 'requests.log')
+        self.log_file_path = os.path.join(settings.BASE_DIR, 'requests.log')
         
-        # Configure logging
-        logging.basicConfig(
-            filename=log_file_path,
-            level=logging.INFO,
-            format='%(message)s',
-            filemode='a'  # Append mode
-        )
-        
+        # Create a specific logger for this middleware
         self.logger = logging.getLogger('request_logger')
+        self.logger.setLevel(logging.INFO)
+        
+        # Create file handler if it doesn't exist
+        if not self.logger.handlers:
+            file_handler = logging.FileHandler(self.log_file_path, mode='a')
+            file_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(message)s')
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
 
     def __call__(self, request):
         """
