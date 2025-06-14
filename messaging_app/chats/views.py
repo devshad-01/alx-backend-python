@@ -10,6 +10,12 @@ from .serializers import (
     ConversationListSerializer,
     MessageSerializer
 )
+from .permissions import (
+    IsOwnerOrReadOnly,
+    IsParticipantOrReadOnly,
+    IsMessageSenderOrParticipant,
+    CanAccessOwnDataOnly
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -19,7 +25,7 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'first_name', 'last_name']
 
@@ -45,7 +51,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     Provides endpoints to list, create, and manage conversations.
     """
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsParticipantOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-updated_at']
@@ -132,11 +138,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     Provides endpoints to list, create, and manage messages within conversations.
     """
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['message_body']
-    ordering_fields = ['sent_at', 'timestamp']
-    ordering = ['-timestamp']
+    permission_classes = [IsAuthenticated, IsMessageSenderOrParticipant]
 
     def get_queryset(self):
         """
