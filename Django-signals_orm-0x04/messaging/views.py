@@ -218,3 +218,93 @@ def user_message_edits(request, username):
         return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def delete_user(request):
+    """
+    API endpoint to delete a user account and all related data.
+    Triggers the post_delete signal for cleanup.
+    """
+    if request.method == 'DELETE':
+        try:
+            data = json.loads(request.body)
+            username = data.get('username')
+            password = data.get('password')
+            
+            if not username or not password:
+                return JsonResponse({
+                    'error': 'Username and password are required'
+                }, status=400)
+            
+            # Get the user
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'error': 'User not found'
+                }, status=404)
+            
+            # Verify password (basic authentication)
+            if not user.check_password(password):
+                return JsonResponse({
+                    'error': 'Invalid password'
+                }, status=401)
+            
+            # Collect statistics before deletion
+            sent_messages = user.sent_messages.count()
+            received_messages = user.received_messages.count()
+            notifications = user.notifications.count()
+            message_edits = user.message_edits.count()
+            
+            # Delete the user (this will trigger the post_delete signal)
+            user.delete()
+            
+            return JsonResponse({
+                'message': f'User {username} deleted successfully',
+                'cleanup_stats': {
+                    'sent_messages_deleted': sent_messages,
+                    'received_messages_deleted': received_messages,
+                    'notifications_deleted': notifications,
+                    'message_edits_deleted': message_edits
+                }
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Only DELETE method allowed'}, status=405)
+
+
+def get_user_data_summary(request, username):
+    """
+    API endpoint to get a summary of user's data before deletion.
+    Helps users understand what will be deleted.
+    """
+    try:
+        user = User.objects.get(username=username)
+        
+        # Get counts of related data
+        sent_messages = user.sent_messages.count()
+        received_messages = user.received_messages.count()
+        notifications = user.notifications.count()
+        message_edits = user.message_edits.count()
+        
+        return JsonResponse({
+            'username': username,
+            'data_summary': {
+                'sent_messages': sent_messages,
+                'received_messages': received_messages,
+                'notifications': notifications,
+                'message_edit_history': message_edits,
+                'total_items': sent_messages + received_messages + notifications + message_edits
+            },
+            'warning': 'All this data will be permanently deleted if you delete your account'
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

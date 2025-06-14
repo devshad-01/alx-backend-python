@@ -9,4 +9,6 @@ urlpatterns = [
     path('edit/<int:message_id>/', views.edit_message, name='edit_message'),
     path('history/<int:message_id>/', views.message_history, name='message_history'),
     path('user-edits/<str:username>/', views.user_message_edits, name='user_message_edits'),
+    path('delete-user/', views.delete_user, name='delete_user'),
+    path('user-summary/<str:username>/', views.get_user_data_summary, name='user_data_summary'),
 ]
