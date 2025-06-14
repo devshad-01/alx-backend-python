@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
     'chats',
 ]
 
@@ -138,7 +139,12 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
         'chats.permissions.IsParticipantOfConversation',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'chats.pagination.MessagePagination',
     'PAGE_SIZE': 20
 }
 

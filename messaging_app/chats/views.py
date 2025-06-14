@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from .models import User, Conversation, Message
 from .serializers import (
@@ -17,6 +18,16 @@ from .permissions import (
     IsMessageSenderOrParticipant,
     CanAccessOwnDataOnly
 )
+from .pagination import (
+    MessagePagination,
+    ConversationPagination,
+    StandardResultsSetPagination
+)
+from .filters import (
+    MessageFilter,
+    ConversationFilter,
+    UserFilter
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -27,8 +38,12 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = UserFilter
     search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['username', 'email', 'created_at', 'is_online']
+    ordering = ['username']
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         """Filter users based on query parameters"""
@@ -53,9 +68,11 @@ class ConversationViewSet(viewsets.ModelViewSet):
     """
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = ConversationFilter
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-updated_at']
+    pagination_class = ConversationPagination
 
     def get_queryset(self):
         """Return conversations where the current user is a participant"""
@@ -153,9 +170,16 @@ class MessageViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing messages.
     Provides endpoints to list, create, and manage messages within conversations.
+    Implements pagination (20 messages per page) and filtering capabilities.
     """
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
+    search_fields = ['message_body', 'sender__username']
+    ordering_fields = ['timestamp', 'sent_at', 'is_read']
+    ordering = ['-timestamp']
+    pagination_class = MessagePagination
 
     def get_queryset(self):
         """
