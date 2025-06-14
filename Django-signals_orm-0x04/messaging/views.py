@@ -110,37 +110,48 @@ def edit_message(request, message_id):
     try:
         data = json.loads(request.body)
         new_content = data.get('content')
+        editor_username = data.get('editor_username')
         
-        if not new_content:
-            return JsonResponse({'error': 'content is required'}, status=400)
+        if not all([new_content, editor_username]):
+            return JsonResponse({
+                'error': 'content and editor_username are required'
+            }, status=400)
         
         try:
             message = Message.objects.get(id=message_id)
+            editor = User.objects.get(username=editor_username)
         except Message.DoesNotExist:
             return JsonResponse({'error': 'Message not found'}, status=404)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Editor user not found'}, status=404)
+        
+        # Check if editor is the sender (basic permission check)
+        if message.sender != editor:
+            return JsonResponse({
+                'error': 'Only the message sender can edit the message'
+            }, status=403)
         
         # Store old content for response
         old_content = message.content
         
-        # Update the message - this will trigger the pre_save signal
+        # Update message content - this will trigger the pre_save signal
         message.content = new_content
         message.save()
+        
+        # Get the history record that was just created
+        history = MessageHistory.objects.filter(message=message).first()
         
         return JsonResponse({
             'success': True,
             'message': {
                 'id': message.id,
                 'old_content': old_content,
-                'new_content': message.content,
+                'new_content': new_content,
                 'edited': message.edited,
-                'sender': message.sender.username,
-                'receiver': message.receiver.username,
-                'timestamp': message.timestamp.isoformat()
+                'edit_logged': history is not None
             }
         })
         
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -151,16 +162,11 @@ def message_history(request, message_id):
     API endpoint to view the edit history of a message.
     """
     try:
-        try:
-            message = Message.objects.get(id=message_id)
-        except Message.DoesNotExist:
-            return JsonResponse({'error': 'Message not found'}, status=404)
-        
-        # Get message history
-        history = MessageHistory.objects.filter(message=message).order_by('-edited_at')
+        message = Message.objects.get(id=message_id)
+        history_records = MessageHistory.objects.filter(message=message)
         
         history_data = []
-        for record in history:
+        for record in history_records:
             history_data.append({
                 'id': record.id,
                 'old_content': record.old_content,
@@ -171,45 +177,44 @@ def message_history(request, message_id):
         return JsonResponse({
             'message_id': message.id,
             'current_content': message.content,
-            'is_edited': message.edited,
-            'edit_history': history_data,
-            'total_edits': len(history_data)
+            'edited': message.edited,
+            'history': history_data,
+            'history_count': len(history_data)
         })
         
+    except Message.DoesNotExist:
+        return JsonResponse({'error': 'Message not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@require_http_methods(["GET"])
-def user_message_history(request, username):
+@require_http_methods(["GET"])  
+def user_message_edits(request, username):
     """
-    API endpoint to view all edit history for messages by a specific user.
+    API endpoint to view all message edits made by a specific user.
     """
     try:
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'User not found'}, status=404)
+        user = User.objects.get(username=username)
+        edits = MessageHistory.objects.filter(edited_by=user)
         
-        # Get all edit history for messages by this user
-        history = MessageHistory.objects.filter(edited_by=user).order_by('-edited_at')
-        
-        history_data = []
-        for record in history:
-            history_data.append({
-                'id': record.id,
-                'message_id': record.message.id,
-                'old_content': record.old_content,
-                'current_content': record.message.content,
-                'edited_at': record.edited_at.isoformat(),
-                'receiver': record.message.receiver.username
+        edits_data = []
+        for edit in edits:
+            edits_data.append({
+                'id': edit.id,
+                'message_id': edit.message.id,
+                'old_content': edit.old_content,
+                'current_content': edit.message.content,
+                'edited_at': edit.edited_at.isoformat(),
+                'message_receiver': edit.message.receiver.username
             })
         
         return JsonResponse({
             'user': username,
-            'edit_history': history_data,
-            'total_edits': len(history_data)
+            'edits': edits_data,
+            'total_edits': len(edits_data)
         })
         
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

@@ -8,5 +8,5 @@ urlpatterns = [
     path('notifications/<str:username>/', views.list_notifications, name='list_notifications'),
     path('edit/<int:message_id>/', views.edit_message, name='edit_message'),
     path('history/<int:message_id>/', views.message_history, name='message_history'),
-    path('user-history/<str:username>/', views.user_message_history, name='user_message_history'),
+    path('user-edits/<str:username>/', views.user_message_edits, name='user_message_edits'),
 ]
