@@ -447,3 +447,104 @@ def list_messages(request, username=None):
         return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def list_unread_messages(request, username=None):
+    """
+    API endpoint to list only unread messages for a user, with optimized querying.
+    Uses the custom UnreadMessagesManager for efficiency.
+    """
+    try:
+        if username:
+            user = User.objects.get(username=username)
+        else:
+            user = request.user
+            
+        # Using our custom manager to get only unread messages for this user
+        # Optimizing with .only() to fetch only necessary fields
+        unread_messages = Message.unread.unread_for_user(user)\
+            .select_related('sender')\
+            .only('id', 'sender', 'content', 'timestamp', 'parent_message')
+            
+        messages_data = []
+        for message in unread_messages:
+            messages_data.append({
+                'id': message.id,
+                'sender': message.sender.username,
+                'content': message.content,
+                'timestamp': message.timestamp.isoformat(),
+                'is_reply': message.parent_message is not None
+            })
+        
+        return JsonResponse({
+            'user': username or request.user.username,
+            'unread_count': len(messages_data),
+            'unread_messages': messages_data
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def mark_message_as_read(request, message_id):
+    """
+    API endpoint to mark a message as read.
+    """
+    try:
+        # Using select_related for optimization
+        message = Message.objects.select_related('sender', 'receiver').get(id=message_id)
+        
+        # Only the receiver can mark a message as read
+        if message.receiver != request.user:
+            return JsonResponse({
+                'error': 'Only the message receiver can mark the message as read'
+            }, status=403)
+        
+        # Update read status
+        if not message.read:
+            message.read = True
+            message.save(update_fields=['read'])
+            status_changed = True
+        else:
+            status_changed = False
+        
+        return JsonResponse({
+            'success': True,
+            'message_id': message.id,
+            'read': message.read,
+            'status_changed': status_changed
+        })
+        
+    except Message.DoesNotExist:
+        return JsonResponse({'error': 'Message not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def mark_all_messages_as_read(request):
+    """
+    API endpoint to mark all unread messages for the current user as read.
+    """
+    try:
+        # Get count before update
+        unread_count = Message.unread.unread_for_user(request.user).count()
+        
+        # Update all unread messages for this user
+        updated = Message.objects.filter(receiver=request.user, read=False).update(read=True)
+        
+        return JsonResponse({
+            'success': True,
+            'messages_marked_as_read': updated,
+            'previous_unread_count': unread_count,
+            'current_unread_count': 0
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

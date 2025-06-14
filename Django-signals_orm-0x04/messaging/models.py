@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from .managers import UnreadMessagesManager
 
 
 class Message(models.Model):
@@ -29,6 +30,10 @@ class Message(models.Model):
         default=False,
         help_text="Whether the message has been edited"
     )
+    read = models.BooleanField(
+        default=False,
+        help_text="Whether the message has been read by the receiver"
+    )
     parent_message = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,
@@ -38,6 +43,10 @@ class Message(models.Model):
         help_text="Parent message if this is a reply"
     )
 
+    # Custom managers
+    objects = models.Manager()  # Default manager
+    unread = UnreadMessagesManager()  # Custom manager for unread messages
+    
     class Meta:
         ordering = ['-timestamp']
 
