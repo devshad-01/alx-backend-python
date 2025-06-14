@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from .models import Message, Notification
 
@@ -22,3 +22,41 @@ def create_notification_on_message(sender, instance, created, **kwargs):
             is_read=False
         )
         print(f"Notification created for user {instance.receiver.username} about message from {instance.sender.username}")
+
+
+@receiver(pre_save, sender=Message)
+def log_message_edit(sender, instance, **kwargs):
+    """
+    Signal handler that logs message edits before the message is updated.
+    
+    Args:
+        sender: The model class (Message)
+        instance: The actual instance being saved (Message instance)
+        **kwargs: Additional keyword arguments
+    """
+    # Import here to avoid circular imports
+    from .models import MessageHistory
+    
+    # Check if this is an update (not a new message)
+    if instance.pk:
+        try:
+            # Get the existing message from database
+            old_message = Message.objects.get(pk=instance.pk)
+            
+            # Check if content has changed
+            if old_message.content != instance.content:
+                # Create history record
+                MessageHistory.objects.create(
+                    message=old_message,
+                    old_content=old_message.content,
+                    edited_by=instance.sender  # Assuming sender is doing the edit
+                )
+                
+                # Mark message as edited
+                instance.edited = True
+                
+                print(f"Message edit logged: Message {instance.pk} content changed from '{old_message.content[:50]}...' to '{instance.content[:50]}...'")
+                
+        except Message.DoesNotExist:
+            # This shouldn't happen, but handle gracefully
+            pass
