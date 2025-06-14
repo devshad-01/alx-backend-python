@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.cache import cache_page
 from django.db.models import Prefetch, Q
 from .models import Message, Notification, MessageHistory
 import json
@@ -393,9 +394,11 @@ def get_message_with_replies(message):
 
 
 @require_http_methods(["GET"])
+@cache_page(60)  # Cache this view for 60 seconds
 def list_messages(request, username=None):
     """
     API endpoint to list messages for a user, with optimized querying.
+    Results are cached for 60 seconds to improve performance.
     """
     try:
         query_params = {}
