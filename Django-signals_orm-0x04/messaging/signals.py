@@ -76,23 +76,32 @@ def cleanup_user_data(sender, instance, **kwargs):
     from .models import MessageHistory
     
     username = instance.username
+    user_id = instance.id
     
-    # Count related data before cleanup for logging
-    sent_messages_count = instance.sent_messages.count()
-    received_messages_count = instance.received_messages.count()
-    notifications_count = instance.notifications.count()
-    message_edits_count = instance.message_edits.count()
+    print(f"User deletion cleanup for '{username}' (ID: {user_id}):")
     
-    print(f"User deletion cleanup for '{username}':")
-    print(f"  - Sent messages: {sent_messages_count}")
-    print(f"  - Received messages: {received_messages_count}")
-    print(f"  - Notifications: {notifications_count}")
-    print(f"  - Message edit history: {message_edits_count}")
+    # Clean up messages sent by this user
+    sent_messages = Message.objects.filter(sender=instance)
+    sent_count = sent_messages.count()
+    print(f"  - Deleting {sent_count} sent messages")
+    sent_messages.delete()
     
-    # Note: Due to CASCADE foreign keys, related data will be automatically deleted
-    # This signal serves as a logging and potential custom cleanup hook
+    # Clean up messages received by this user
+    received_messages = Message.objects.filter(receiver=instance)
+    received_count = received_messages.count()
+    print(f"  - Deleting {received_count} received messages")
+    received_messages.delete()
     
-    # Custom cleanup logic can be added here if needed
-    # For example, cleanup of files, external services, etc.
+    # Clean up notifications for this user
+    user_notifications = Notification.objects.filter(user=instance)
+    notifications_count = user_notifications.count()
+    print(f"  - Deleting {notifications_count} notifications")
+    user_notifications.delete()
+    
+    # Clean up message edit history by this user
+    user_message_edits = MessageHistory.objects.filter(edited_by=instance)
+    edits_count = user_message_edits.count()
+    print(f"  - Deleting {edits_count} message edit history records")
+    user_message_edits.delete()
     
     print(f"User '{username}' and all related data have been cleaned up successfully")
