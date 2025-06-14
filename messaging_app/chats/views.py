@@ -13,6 +13,7 @@ from .serializers import (
 from .permissions import (
     IsOwnerOrReadOnly,
     IsParticipantOrReadOnly,
+    IsParticipantOfConversation,
     IsMessageSenderOrParticipant,
     CanAccessOwnDataOnly
 )
@@ -51,7 +52,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     Provides endpoints to list, create, and manage conversations.
     """
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated, IsParticipantOrReadOnly]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-updated_at']
@@ -85,6 +86,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
     def add_participant(self, request, pk=None):
         """Add a participant to an existing conversation"""
         conversation = self.get_object()
+        
+        # Check if user is a participant in the conversation
+        if request.user not in conversation.participants.all():
+            return Response(
+                {'error': 'You are not authorized to add participants to this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         user_id = request.data.get('user_id')
         
         if not user_id:
@@ -110,6 +119,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
     def remove_participant(self, request, pk=None):
         """Remove a participant from a conversation"""
         conversation = self.get_object()
+        
+        # Check if user is a participant in the conversation
+        if request.user not in conversation.participants.all():
+            return Response(
+                {'error': 'You are not authorized to remove participants from this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         user_id = request.data.get('user_id')
         
         if not user_id:
@@ -138,7 +155,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     Provides endpoints to list, create, and manage messages within conversations.
     """
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated, IsMessageSenderOrParticipant]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
     def get_queryset(self):
         """
@@ -165,12 +182,17 @@ class MessageViewSet(viewsets.ModelViewSet):
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(
-                    conversation_id=conversation_id,
-                    participants=request.user
+                    conversation_id=conversation_id
                 )
+                # Check if user is a participant
+                if request.user not in conversation.participants.all():
+                    return Response(
+                        {'error': 'You are not authorized to send messages to this conversation'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
             except Conversation.DoesNotExist:
                 return Response(
-                    {'error': 'Conversation not found or you are not a participant'},
+                    {'error': 'Conversation not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
         
@@ -227,3 +249,55 @@ class MessageViewSet(viewsets.ModelViewSet):
                 {'error': 'Conversation not found or you are not a participant'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update a message. Only the sender can update their own messages.
+        """
+        message = self.get_object()
+        
+        # Check if user is the sender of the message
+        if message.sender != request.user:
+            return Response(
+                {'error': 'You are not authorized to update this message'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if user is still a participant in the conversation
+        if request.user not in message.conversation.participants.all():
+            return Response(
+                {'error': 'You are not authorized to update messages in this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = self.get_serializer(message, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a message. Only the sender can delete their own messages.
+        """
+        message = self.get_object()
+        
+        # Check if user is the sender of the message
+        if message.sender != request.user:
+            return Response(
+                {'error': 'You are not authorized to delete this message'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if user is still a participant in the conversation
+        if request.user not in message.conversation.participants.all():
+            return Response(
+                {'error': 'You are not authorized to delete messages in this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        message.delete()
+        return Response(
+            {'message': 'Message deleted successfully'},
+            status=status.HTTP_204_NO_CONTENT
+        )

@@ -15,6 +15,55 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         return obj == request.user
 
 
+class IsParticipantOfConversation(permissions.BasePermission):
+    """
+    Custom permission to only allow participants in a conversation to send, view, update and delete messages.
+    """
+    def has_permission(self, request, view):
+        """
+        Allow only authenticated users to access the API
+        """
+        return request.user and request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Allow only participants in a conversation to send, view, update and delete messages
+        """
+        # For conversation objects
+        if hasattr(obj, 'participants'):
+            is_participant = request.user in obj.participants.all()
+            
+            # Allow GET for participants
+            if request.method == 'GET':
+                return is_participant
+            
+            # Allow POST, PUT, PATCH, DELETE for participants
+            if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+                return is_participant
+                
+            return is_participant
+        
+        # For message objects, check if user is participant in the conversation
+        if hasattr(obj, 'conversation'):
+            is_participant = request.user in obj.conversation.participants.all()
+            
+            # Allow GET for participants
+            if request.method == 'GET':
+                return is_participant
+            
+            # Allow POST for participants (creating new messages)
+            if request.method == 'POST':
+                return is_participant
+            
+            # Allow PUT, PATCH, DELETE only for message sender who is also a participant
+            if request.method in ['PUT', 'PATCH', 'DELETE']:
+                return is_participant and obj.sender == request.user
+                
+            return is_participant
+        
+        return False
+
+
 class IsParticipantOrReadOnly(permissions.BasePermission):
     """
     Custom permission to only allow participants of a conversation to access it.
