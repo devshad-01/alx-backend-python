@@ -221,61 +221,63 @@ def user_message_edits(request, username):
 
 
 @csrf_exempt
-def delete_user(request):
+@require_http_methods(["DELETE", "POST"])
+def delete_user(request, username):
     """
-    API endpoint to delete a user account and all related data.
-    Triggers the post_delete signal for cleanup.
-    """
-    if request.method == 'DELETE':
-        try:
-            data = json.loads(request.body)
-            username = data.get('username')
-            password = data.get('password')
-            
-            if not username or not password:
-                return JsonResponse({
-                    'error': 'Username and password are required'
-                }, status=400)
-            
-            # Get the user
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                return JsonResponse({
-                    'error': 'User not found'
-                }, status=404)
-            
-            # Verify password (basic authentication)
-            if not user.check_password(password):
-                return JsonResponse({
-                    'error': 'Invalid password'
-                }, status=401)
-            
-            # Collect statistics before deletion
-            sent_messages = user.sent_messages.count()
-            received_messages = user.received_messages.count()
-            notifications = user.notifications.count()
-            message_edits = user.message_edits.count()
-            
-            # Delete the user (this will trigger the post_delete signal)
-            user.delete()
-            
-            return JsonResponse({
-                'message': f'User {username} deleted successfully',
-                'cleanup_stats': {
-                    'sent_messages_deleted': sent_messages,
-                    'received_messages_deleted': received_messages,
-                    'notifications_deleted': notifications,
-                    'message_edits_deleted': message_edits
-                }
-            })
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+    API endpoint that allows a user to delete their account.
+    This will trigger the post_delete signal to clean up related data.
     
-    return JsonResponse({'error': 'Only DELETE method allowed'}, status=405)
+    Args:
+        request: HTTP request object
+        username: Username of the user to delete
+    
+    Returns:
+        JsonResponse with deletion status
+    """
+    try:
+        # Get the user to delete
+        user = User.objects.get(username=username)
+        
+        # Store user info for response before deletion
+        user_id = user.id
+        user_info = {
+            'id': user_id,
+            'username': user.username,
+            'email': user.email,
+            'date_joined': user.date_joined.isoformat() if user.date_joined else None
+        }
+        
+        # Count related data before deletion
+        related_data_count = {
+            'sent_messages': user.sent_messages.count(),
+            'received_messages': user.received_messages.count(),
+            'notifications': user.notifications.count(),
+            'message_edits': user.message_edits.count()
+        }
+        
+        print(f"Deleting user: {user.username} (ID: {user_id})")
+        print(f"Related data to be cleaned up: {related_data_count}")
+        
+        # Delete the user - this will trigger the post_delete signal
+        user.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'User account {username} has been successfully deleted',
+            'deleted_user': user_info,
+            'cleaned_up_data': related_data_count,
+            'note': 'All related messages, notifications, and history have been automatically cleaned up via Django signals'
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({
+            'error': f'User with username "{username}" not found'
+        }, status=404)
+    
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Failed to delete user: {str(e)}'
+        }, status=500)
 
 
 def get_user_data_summary(request, username):
