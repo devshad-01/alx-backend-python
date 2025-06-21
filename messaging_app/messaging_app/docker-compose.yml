@@ -22,17 +22,17 @@ services:
   # Django Web Application Service
   web:
     build:
-      context: ./messaging_app
+      context: .
       dockerfile: Dockerfile
     volumes:
-      - ./messaging_app:/app
+      - .:/app
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
     env_file:
-      - ./messaging_app/.env
+      - ./.env
     command: >
       sh -c "python manage.py makemigrations &&
              python manage.py migrate &&
