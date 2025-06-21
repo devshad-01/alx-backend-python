@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from .models import User, Conversation, Message
 from .serializers import (
     UserSerializer, 
@@ -180,6 +182,13 @@ class MessageViewSet(viewsets.ModelViewSet):
     ordering_fields = ['timestamp', 'sent_at', 'is_read']
     ordering = ['-timestamp']
     pagination_class = MessagePagination
+    
+    @method_decorator(cache_page(60))  # Cache for 60 seconds
+    def list(self, request, *args, **kwargs):
+        """
+        List all messages. This view is cached for 60 seconds.
+        """
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         """
