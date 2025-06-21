@@ -24,24 +24,23 @@ This configuration sets up an in-memory cache that lives within the Django proce
 
 ### 2. Adding Cache to the Message List View
 
-We applied Django's `cache_page` decorator to the `list` method of our `MessageViewSet` to cache the results for 60 seconds:
+We applied Django's `cache_page` decorator to our `list_messages` function to cache the results for 60 seconds:
 
 ```python
-from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
-class MessageViewSet(viewsets.ModelViewSet):
-    # ... other configurations ...
-    
-    @method_decorator(cache_page(60))  # Cache for 60 seconds
-    def list(self, request, *args, **kwargs):
-        """
-        List all messages. This view is cached for 60 seconds.
-        """
-        return super().list(request, *args, **kwargs)
+@require_http_methods(["GET"])
+@cache_page(60)  # Cache this view for 60 seconds
+def list_messages(request, username=None):
+    """
+    API endpoint to list messages for a user, with optimized querying.
+    Results are cached for 60 seconds to improve performance.
+    """
+    # Function implementation...
 ```
 
 This approach:
+
 1. Imports the necessary decorators from Django
 2. Applies the `cache_page` decorator with a timeout of 60 seconds
 3. Overrides the `list` method to apply the caching

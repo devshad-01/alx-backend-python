@@ -13,12 +13,12 @@ A boolean field `read` has been added to the `Message` model to track whether a 
 ```python
 class Message(models.Model):
     # ... other fields ...
-    
+
     read = models.BooleanField(
         default=False,
         help_text="Whether the message has been read by the receiver"
     )
-    
+
     # ... rest of the model ...
 ```
 
@@ -36,26 +36,26 @@ class UnreadMessagesManager(models.Manager):
     def get_queryset(self):
         """Return only unread messages."""
         return super().get_queryset().filter(read=False)
-    
+
     def unread_for_user(self, user):
         """
         Return unread messages where the user is the receiver.
-        
+
         Args:
             user: The User object
-            
+
         Returns:
             QuerySet of unread messages for the user
         """
         return self.get_queryset().filter(receiver=user)
-    
+
     def unread_messages_count(self, user):
         """
         Return the count of unread messages for a user.
-        
+
         Args:
             user: The User object
-            
+
         Returns:
             Integer count of unread messages
         """
@@ -75,11 +75,11 @@ The custom manager has been added to the `Message` model alongside the default m
 ```python
 class Message(models.Model):
     # ... fields ...
-    
+
     # Custom managers
     objects = models.Manager()  # Default manager
     unread = UnreadMessagesManager()  # Custom manager for unread messages
-    
+
     # ... rest of the model ...
 ```
 
@@ -101,13 +101,13 @@ def list_unread_messages(request, username=None):
             user = User.objects.get(username=username)
         else:
             user = request.user
-            
+
         # Using our custom manager to get only unread messages for this user
         # Optimizing with .only() to fetch only necessary fields
         unread_messages = Message.unread.unread_for_user(user)\
             .select_related('sender')\
             .only('id', 'sender', 'content', 'timestamp', 'parent_message')
-            
+
         messages_data = []
         for message in unread_messages:
             messages_data.append({
@@ -117,13 +117,13 @@ def list_unread_messages(request, username=None):
                 'timestamp': message.timestamp.isoformat(),
                 'is_reply': message.parent_message is not None
             })
-        
+
         return JsonResponse({
             'user': username or request.user.username,
             'unread_count': len(messages_data),
             'unread_messages': messages_data
         })
-        
+
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
