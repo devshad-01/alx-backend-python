@@ -11,7 +11,8 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    postgresql-client \
+    default-libmysqlclient-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -31,4 +32,4 @@ EXPOSE 8000
 # docker run -p 8000:8000 image_name
 
 # Run the application
-CMD ["python", "manage.py", "runserver", "-p", "8000", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
