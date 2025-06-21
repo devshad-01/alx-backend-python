@@ -11,7 +11,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        postgresql-client \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -27,5 +27,8 @@ RUN python manage.py collectstatic --noinput
 # Expose port 8000
 EXPOSE 8000
 
+# Comment showing how to run with port mapping
+# docker run -p 8000:8000 image_name
+
 # Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "-p", "8000", "0.0.0.0:8000"]
