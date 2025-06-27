@@ -1,0 +1,14 @@
+#!/bin/bash
+# kurbeScript: Start Minikube, verify cluster, and list pods
+
+# Start Minikube (if not already running)
+echo "Starting Minikube..."
+minikube start
+
+# Check cluster info
+echo "\nVerifying Kubernetes cluster..."
+kubectl cluster-info
+
+# List all pods in all namespaces
+echo "\nListing all pods:"
+kubectl get pods -A
