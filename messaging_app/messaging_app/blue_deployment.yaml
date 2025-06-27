@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-messaging-blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: django-messaging-blue
+  template:
+    metadata:
+      labels:
+        app: django-messaging-blue
+    spec:
+      containers:
+        - name: django-messaging-app
+          image: your-dockerhub-username/django-messaging-app:2.0 # <-- Updated to version 2.0
+          ports:
+            - containerPort: 8000

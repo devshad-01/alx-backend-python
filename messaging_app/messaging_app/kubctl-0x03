@@ -1,0 +1,28 @@
+#!/bin/bash
+# kubctl-0x03: Rolling update for blue deployment, monitor, and test for downtime
+
+set -e
+
+echo "Applying updated blue deployment (image v2.0)..."
+kubectl apply -f messaging_app/messaging_app/blue_deployment.yaml
+
+echo "Triggering rolling update and monitoring status..."
+kubectl rollout status deployment/django-messaging-blue
+
+# Get service ClusterIP and port
+echo "\nFetching service ClusterIP and port..."
+SERVICE_IP=$(kubectl get svc django-messaging-service -o jsonpath='{.spec.clusterIP}')
+PORT=$(kubectl get svc django-messaging-service -o jsonpath='{.spec.ports[0].port}')
+
+echo "\nTesting for downtime during rollout (10 requests):"
+for i in {1..10}; do
+  curl --max-time 2 -s -o /dev/null -w "Request $i: %{http_code}\n" http://$SERVICE_IP:$PORT/ || echo "Request $i: Failed"
+  sleep 1
+  # You can increase the number or frequency for more thorough testing
+  # sleep 0.5
+  # done
+
+done
+
+echo "\nVerifying current pods:"
+kubectl get pods -l app=django-messaging-blue
