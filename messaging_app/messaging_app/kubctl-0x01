@@ -1,0 +1,20 @@
+#!/bin/bash
+# kubctl-0x01: Scale Django app, verify pods, load test, and monitor resources
+
+# Scale deployment to 3 replicas
+echo "Scaling deployment to 3 replicas..."
+kubectl scale deployment django-messaging-app --replicas=3
+
+# Verify pods
+echo "\nCurrent pods:"
+kubectl get pods
+
+# Load testing (replace <service-ip> and <port> as needed)
+echo "\nRunning load test with wrk (update <service-ip> and <port> if needed)..."
+echo "Example: wrk -t2 -c10 -d10s http://<service-ip>:8000/"
+# Uncomment and update the next line with your actual service IP if you want to run automatically
+# wrk -t2 -c10 -d10s http://<service-ip>:8000/
+
+# Monitor resource usage
+echo "\nResource usage (kubectl top pods):"
+kubectl top pods
