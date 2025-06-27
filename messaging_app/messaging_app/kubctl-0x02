@@ -1,0 +1,20 @@
+#!/bin/bash
+# kubctl-0x02: Deploy blue and green versions, check logs for errors
+
+echo "Applying blue deployment..."
+kubectl apply -f messaging_app/messaging_app/blue_deployment.yaml
+
+echo "Applying green deployment..."
+kubectl apply -f messaging_app/messaging_app/green_deployment.yaml
+
+echo "Applying service..."
+kubectl apply -f messaging_app/messaging_app/kubeservice.yaml
+
+# Check logs for green deployment pods
+echo "\nChecking logs for green deployment pods:"
+green_pods=$(kubectl get pods -l app=django-messaging-green -o jsonpath='{.items[*].metadata.name}')
+for pod in $green_pods; do
+  echo "\nLogs for $pod:"
+  kubectl logs $pod
+  echo "----------------------"
+done
