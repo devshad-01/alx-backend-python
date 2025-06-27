@@ -13,7 +13,7 @@ spec:
         app: django-messaging-green
     spec:
       containers:
-      - name: django-messaging-app
-        image: your-dockerhub-username/django-messaging-app:2.0 # <-- Replace with your actual image
-        ports:
-        - containerPort: 8000
+        - name: django-messaging-app
+          image: your-dockerhub-username/django-messaging-app:2.0 # <-- Replace with your actual image
+          ports:
+            - containerPort: 8000

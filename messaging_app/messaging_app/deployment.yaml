@@ -13,10 +13,10 @@ spec:
         app: django-messaging-app
     spec:
       containers:
-      - name: django-messaging-app
-        image: your-dockerhub-username/django-messaging-app:latest # <-- Replace with your actual image
-        ports:
-        - containerPort: 8000
+        - name: django-messaging-app
+          image: your-dockerhub-username/django-messaging-app:latest # <-- Replace with your actual image
+          ports:
+            - containerPort: 8000
 ---
 apiVersion: v1
 kind: Service
