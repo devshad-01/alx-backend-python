@@ -42,12 +42,22 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r messaging_app/messaging_app/requirements.txt
+          pip install flake8 coverage
       - name: Wait for MySQL
         run: |
           until mysqladmin ping -h 127.0.0.1 -u test_user -ptest_pass --silent; do
             sleep 2
           done
-      - name: Run Django tests
+      - name: Lint with flake8
+        run: |
+          flake8 messaging_app/messaging_app
+      - name: Run tests with coverage
         run: |
           cd messaging_app/messaging_app
-          python manage.py test
+          coverage run manage.py test
+          coverage xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: messaging_app/messaging_app/coverage.xml
